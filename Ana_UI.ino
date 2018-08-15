@@ -129,6 +129,7 @@ static int screenHandlerInputVol(KeyCode_t key, int itemIdx, HandlerState_t stat
 static int screenHandlerConfirmFlowRate(KeyCode_t key, int itemIdx, HandlerState_t state); 
 static int screenHandlerConfirmVol(KeyCode_t key, int itemIdx, HandlerState_t state); 
 static int screenHandlerInputUpperSoftLimit(KeyCode_t key, int itemIdx, HandlerState_t state);
+static int screenHandlerConfirmUpperSoftLimit(KeyCode_t key, int itemIdx, HandlerState_t state);
 //static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state);
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -210,7 +211,7 @@ static const UiTableEntry_t uiItems[] =
 , { inputUpperSoftLimit_hundreds, UI_NONE, UI_NONE, inputUpperSoftLimit_tens, "Upper soft limit", "rate hundreds: 0", screenHandlerInputUpperSoftLimit }
 , { inputUpperSoftLimit_tens, UI_NONE, UI_NONE, inputUpperSoftLimit_ones, "Upper soft limit", "rate tens:     0", screenHandlerInputUpperSoftLimit }
 , { inputUpperSoftLimit_ones, UI_NONE, UI_NONE, confirmUpperSoftLimit, "Upper soft limit", "rate ones:    0", screenHandlerInputUpperSoftLimit }
-, {confirmUpperSoftLimit}
+, {confirmUpperSoftLimit, inputUpperSoftLimit_tens, inputLowerSoftLimit, UI_NONE, "Is this correct?", "", screenHandlerConfirmUpperSoftLimit}
 //, {invalidVol, UI_NONE, UI_NONE, UI_NONE, "Invalid Vol: Must", "be from 1-30 mL", screenHandlerInvalidVol}
 };
 
@@ -343,6 +344,19 @@ static int screenHandlerInputUpperSoftLimit(KeyCode_t key, int itemIdx, HandlerS
       return UI_NONE;
     }
 }
+
+static int screenHandlerConfirmUpperSoftLimit(KeyCode_t key, int itemIdx, HandlerState_t state){
+  screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
+  lcd.setCursor(4,1); lcd.print(currUpperSoftLimit);
+  lcd.print("mL/h");
+  lcd.setCursor(0,1); lcd.print("L:N");
+  lcd.setCursor(13,1); lcd.print("R:Y");
+
+  if(key == KEY_RIGHT || key == KEY_LEFT){
+    return UI_NONE;
+  }
+}
+
 
 //static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state){
 //  delay(3500);
