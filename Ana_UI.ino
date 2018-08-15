@@ -1,0 +1,553 @@
+//
+// ui.cpp
+// Code file for User Interface (UI) portion of syringe pump project
+//
+
+#include "ui.h"
+#include "motor.h"
+#include <Keyboard.h>
+#include <LiquidCrystal.h>
+
+/* -- Enums, constants, structs, etc. -- */
+
+#define PIN_KEYPAD_INPUT          (0)
+#define PIN_LCD_RS                (8)
+#define PIN_LCD_EN                (9)
+#define PIN_LCD_D4                (4)
+#define PIN_LCD_D5                (5)
+#define PIN_LCD_D6                (6)
+#define PIN_LCD_D7                (7)
+#define DISPLAY_LINE_WIDTH        (16)
+
+#define KEY_DEBOUNCE_COUNT        (60 / UI_PROCESS_DELAY_MS)  // 60 ms
+#define KEY_REPEAT_SLOW_COUNT     (500 / UI_PROCESS_DELAY_MS) // 500 ms
+#define KEY_REPEAT_FAST_COUNT     (200 / UI_PROCESS_DELAY_MS) // 200 ms
+#define KEY_FAST_REPEAT_THRESHOLD (2)
+
+#define SPLASH_SCREEN_COUNT       (3000 / UI_PROCESS_DELAY_MS) // 3 seconds
+
+#define INVALID (-1)
+
+static const char splashTop[] = "  Syringe Pump";
+static const char splashBot[] = "  Version 1.00";
+
+typedef enum  // Key codes, order is important here.  See keyConvertAdcToKeyCode().
+{ KEY_SELECT
+, KEY_RIGHT
+, KEY_LEFT
+, KEY_DOWN
+, KEY_UP
+, KEY_MAX // Key count
+, KEY_NONE // Default, no key code case
+} KeyCode_t;
+
+typedef enum // Menu and Entry items
+{ UI_NONE // If there is no transition to occur
+// "UI_M" for main menu item
+, UI_M_START
+, UI_M_RETRACT
+// "UI_S" for sub-menu item
+// "UI_H" for handlers
+, UI_H_INFUSING
+, UI_H_RETRACTING
+// Add additional items here
+, inputFlowRate_thousands
+, inputFlowRate_hundreds
+, inputFlowRate_tens
+, inputFlowRate_ones
+, inputVol_tens
+, inputVol_ones
+, confirmFlowRate
+, confirmVol
+, infusingPrompt
+// Must be last
+, UI_MAX
+} UiItem_t;
+
+// UI starting point
+#define UI_START  UI_M_START
+
+typedef enum { HANDLER_STATE_NONE, HANDLER_STATE_ENTER, HANDLER_STATE_EXIT} HandlerState_t;
+
+typedef int (*Handler_t)( KeyCode_t key           // Key (or KEY_NONE if action/event) that caused transition to this screen
+                        , int itemIdx             // The index(row) into the table, for the screen you are currently on
+                        , HandlerState_t state    // HANDLER_STATE_ENTER if just entering state
+                                                  // HANDLER_STATE_EXIT if just exiting
+                                                  // HANDLER_STATE_NONE for everything inbetween
+                        );
+
+typedef struct
+{ UiItem_t item;      // Screen name
+  UiItem_t left;      // Screen to transition to when left key is hit
+  UiItem_t right;     // Screen to transition to when right key is hit
+  UiItem_t select;    // Screen to transition to when select key is hit
+  const char *top;    // Default string to be displayed on top line of LCD (can be overwritten by handler)
+  const char *bot;    // Same as above for bottom line
+  Handler_t handler;  // Function to perform additional actions as needed for selected screen
+} UiTableEntry_t;
+
+/* -- Local variables -- */
+
+static LiquidCrystal lcd(PIN_LCD_RS, PIN_LCD_EN, PIN_LCD_D4, PIN_LCD_D5, PIN_LCD_D6, PIN_LCD_D7);
+
+static bool infusing = false;
+uint32_t tenthVolumeInfused;
+uint16_t volumeInfused;
+int16_t rate;
+int numSelected = 0, currRate = 0, i = 0, currVol = 0;
+// Add additional variables here
+
+
+/* -- Local function prototypes -- */
+static void concatInt(char *buf, int value);
+static bool isSplashScreenActive(void);
+static KeyCode_t keyConvertAdcToKeyCode(uint16_t input);
+static KeyCode_t keyGetDebouncedKey(void);
+static void screenDraw(const char *top, const char *bot);
+static int  screenFindUiItemIndex(UiItem_t item);
+static int  screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t state);
+static int  screenHandlerRetracting(KeyCode_t key, int itemIdx, HandlerState_t state);
+static int screenHandlerInputFlowRate(KeyCode_t key, int itemIdx, HandlerState_t state); 
+static int screenHandlerInputVol(KeyCode_t key, int itemIdx, HandlerState_t state); 
+static int screenHandlerConfirmFlowRate(KeyCode_t key, int itemIdx, HandlerState_t state); 
+static int screenHandlerConfirmVol(KeyCode_t key, int itemIdx, HandlerState_t state); 
+static void screenProcess(KeyCode_t key, UiItem_t moveToItem);
+
+/* -- Global Functions -- */
+
+void uiSetup()
+{
+  // LCD setup
+  lcd.begin(DISPLAY_LINE_WIDTH, 2);
+
+  // Draw the splash screen
+  screenDraw(splashTop, splashBot);
+}
+
+void uiProcess(void)
+{
+  // This function is called every UI_PROCESS_DELAY_MS milliseconds
+
+  if (!isSplashScreenActive())
+  {
+    KeyCode_t key = keyGetDebouncedKey();
+    if (key != KEY_NONE)
+    {
+      screenProcess(key, UI_NONE);
+    }
+  }
+}
+
+void uiDeliveryStatus (bool moving             // If the motor is moving or not
+                      , uint32_t MLDelivered)  // Tenths of mL that have been delivered
+{
+  int idx;
+
+  if (infusing)
+  {
+    if (!moving)
+    {
+      // Add and alter this code to follow the requirements
+      screenProcess(KEY_NONE, UI_M_START);
+    }
+
+    else
+    {
+      screenProcess(KEY_NONE, UI_H_INFUSING);
+    }
+  }
+  else // !infusing (Retracting)
+  {
+    if (!moving)
+    {
+      screenProcess(KEY_NONE, UI_M_RETRACT);
+    }
+  }
+}
+
+/* -- UI menu & handler table -- */
+
+static const UiTableEntry_t uiItems[] =
+//  item,            left,          right,         select,          top,              bot,                handler
+{ { UI_M_START,      UI_M_RETRACT,  UI_M_RETRACT,  inputFlowRate_thousands,   "Menu: Infuse",    "L:<  SEL:Ok  R:>", NULL }
+, { UI_H_INFUSING,   UI_M_START,    UI_NONE,       UI_NONE,         "   Infusing",    "L:Stop",           screenHandlerInfusing }
+,  { UI_M_RETRACT,    UI_M_START,    UI_M_START,    UI_H_RETRACTING, "Menu: Retract",  "L:<  SEL:Ok  R:>", NULL }
+, { UI_H_RETRACTING, UI_M_RETRACT,  UI_NONE,       UI_NONE,         "  Retracting",   "L:Stop",           screenHandlerRetracting }
+
+// Add additional UiTableEntrys here
+
+// CHANGED BELOW
+// Must be last
+
+, { inputFlowRate_thousands, UI_NONE, UI_NONE, inputFlowRate_hundreds, "Enter Flow Rate", "Thousands: 0", screenHandlerInputFlowRate }
+, { inputFlowRate_hundreds, UI_NONE, UI_NONE, inputFlowRate_tens, "Enter Flow Rate", "Hundreds:  0", screenHandlerInputFlowRate }
+, { inputFlowRate_tens, UI_NONE, UI_NONE, inputFlowRate_ones, "Enter Flow Rate", "Tens:      0", screenHandlerInputFlowRate }
+, { inputFlowRate_ones, UI_NONE, UI_NONE, confirmFlowRate, "Enter Flow Rate", "Ones:      0", screenHandlerInputFlowRate }
+, { confirmFlowRate, inputFlowRate_thousands, inputVol_tens, UI_NONE, "Is this correct?", "", screenHandlerConfirmFlowRate}
+, { inputVol_tens, UI_NONE, UI_NONE, inputVol_ones, "Enter VTBI", "Tens: 0", screenHandlerInputVol }
+, { inputVol_ones, UI_NONE, UI_NONE, confirmVol, "Enter VBTI", "Ones: 0", screenHandlerInputVol }
+, {confirmVol, inputVol_tens, infusingPrompt, UI_NONE, "Is this correct?", "", screenHandlerConfirmVol}
+, {infusingPrompt, UI_NONE, UI_NONE, UI_H_INFUSING, "Press SEL to", "start infusion", NULL}
+};
+
+/* -- Local Functions -- */
+
+static int screenHandlerInputFlowRate(KeyCode_t key, int itemIdx, HandlerState_t state){
+    screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
+    lcd.setCursor(11,1);
+  
+    if(key == KEY_UP & numSelected == 9){
+      numSelected = 0;
+      lcd.print(numSelected);
+    }
+    else if(key == KEY_UP & numSelected < 9){
+      ++numSelected;
+      lcd.print(numSelected);
+    }
+    if(key == KEY_DOWN & numSelected == 0){
+      numSelected = 9; 
+      lcd.print(numSelected);   
+    }
+    else if(key == KEY_DOWN & numSelected > 0){
+      --numSelected;
+      lcd.print(numSelected);    
+    }
+    if(key == KEY_SELECT){
+      ++i;
+      if(i == 1){currRate = numSelected * 1000;}
+      if(i == 2){currRate += numSelected * 100;}
+      if(i == 3){currRate += numSelected * 10;}
+      if(i == 4){currRate += numSelected; i = 0;}
+      numSelected = 0;
+      return UI_NONE;
+    }
+}
+
+static int screenHandlerConfirmFlowRate(KeyCode_t key, int itemIdx, HandlerState_t state){
+  screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
+  lcd.setCursor(4,1); lcd.print(currRate);
+  lcd.print("mL/h");
+  lcd.setCursor(0,1); lcd.print("L:N");
+  lcd.setCursor(13,1); lcd.print("R:Y");
+
+  if(key == KEY_RIGHT || key == KEY_LEFT){
+    return UI_NONE;
+  }
+}
+
+static int screenHandlerInputVol(KeyCode_t key, int itemIdx, HandlerState_t state){
+  screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
+    lcd.setCursor(6,1);
+  
+    if(key == KEY_UP & numSelected == 9){
+      numSelected = 0;
+      lcd.print(numSelected);
+    }
+    else if(key == KEY_UP & numSelected < 9){
+      ++numSelected;
+      lcd.print(numSelected);
+    }
+    if(key == KEY_DOWN & numSelected == 0){
+      numSelected = 9; 
+      lcd.print(numSelected);   
+    }
+    else if(key == KEY_DOWN & numSelected > 0){
+      --numSelected;
+      lcd.print(numSelected);    
+    }
+    if(key == KEY_SELECT){
+      ++i;
+      if(i == 1){currVol = numSelected * 10;}
+      if(i == 2){currVol += numSelected; i = 0;}
+      numSelected = 0;
+      return UI_NONE;
+    }
+}
+
+static int screenHandlerConfirmVol(KeyCode_t key, int itemIdx, HandlerState_t state){
+  screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
+  lcd.setCursor(6,1); lcd.print(currVol);
+  lcd.print(" mL");
+  lcd.setCursor(0,1); lcd.print("L:N");
+  lcd.setCursor(13,1); lcd.print("R:Y");
+
+  if(key == KEY_RIGHT || key == KEY_LEFT){
+    return UI_NONE;
+  }
+}
+// END OF MY CODE
+
+
+static int screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t state)
+{
+  if (state == HANDLER_STATE_ENTER)
+  {
+    infusing = true;
+    if (motorStart(200, 1)) // Hardcode rate and VTBI
+    {
+      // Error in starting motor
+      Serial.println("Error in starting motor");
+    }
+
+  }
+  else if (state == HANDLER_STATE_EXIT)
+  {
+    infusing = false;
+  }
+
+  if (key == KEY_LEFT)
+  {
+    motorStop();
+    infusing = false;
+  }
+
+  screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
+  return UI_NONE;
+}
+
+static int screenHandlerRetracting(KeyCode_t key, int itemIdx, HandlerState_t state)
+{
+  if (state == HANDLER_STATE_ENTER)
+  {
+    motorStart(-1000, 1);
+  }
+  else if (key == KEY_LEFT && state == HANDLER_STATE_EXIT)
+  {
+    motorStop();
+  }
+
+  screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
+
+  return UI_NONE;
+}
+
+// Add additional screenHandlers here
+
+
+static void concatInt(char *buf, int value)
+{
+  String s(value);
+  s.toCharArray(&buf[strlen(buf)], 5);
+}
+
+/**********************************************************
+ * isSplashScreenActiveScreen - handles a splash screen
+ * display.
+ *
+ * Returns true if the splash screen is still active,
+ * otherwise false.
+ *
+ */
+static bool isSplashScreenActive(void)
+{
+  static int splashCount = SPLASH_SCREEN_COUNT;
+
+  bool active = (splashCount > 0) ? true : false;
+
+  if (active)
+  {
+    splashCount --;
+    if (splashCount <= 0)
+    {
+      screenProcess(KEY_NONE, UI_NONE); // Force an initial update
+    }
+  }
+
+  return active;
+}
+
+static KeyCode_t keyConvertAdcToKeyCode(uint16_t input) //Figuring out what button's pressed
+{
+  static const int adcKeyValue[5] = {700, 820, 875, 915, 950}; // Order: Select, Right, Left, Down, Up
+  int k;
+
+  for (k = 0; k < KEY_MAX; k++)
+  {
+    if (input < adcKeyValue[k])
+    {
+      break;
+    }
+  }
+
+  if (k >= KEY_MAX)
+  {
+    k = KEY_NONE;     // No valid key pressed
+  }
+
+  return (KeyCode_t) k;
+}
+
+static KeyCode_t keyGetDebouncedKey(void)
+{
+  static KeyCode_t lastKey = KEY_NONE;
+  static int eventCnt = 0;
+  static uint32_t keyRepeatCount = 0;
+
+  KeyCode_t key = keyConvertAdcToKeyCode(analogRead(PIN_KEYPAD_INPUT));
+  KeyCode_t keyToReport = KEY_NONE;
+
+  if (key == KEY_NONE)
+  {
+    // Nothing to do
+  }
+  else if (key != lastKey)
+  {
+    // Start debounce
+    eventCnt = KEY_DEBOUNCE_COUNT;
+    keyRepeatCount = 0;
+  }
+  else // key == lastKey
+  {
+    eventCnt --;
+    if (eventCnt < 0)
+    {
+      keyToReport = key;
+      if (keyRepeatCount <= KEY_FAST_REPEAT_THRESHOLD)
+      {
+        eventCnt = KEY_REPEAT_SLOW_COUNT;
+      }
+      else
+      {
+        eventCnt = KEY_REPEAT_FAST_COUNT;
+      }
+
+      keyRepeatCount ++;
+    }
+  }
+  lastKey = key;
+
+  return keyToReport;
+}
+
+/**********************************************************
+ * screenDraw - draws the screen given the top and bottom
+ *   character strings.
+ */
+static void screenDraw(const char *top, const char *bot)
+{
+  lcd.clear();
+
+  lcd.setCursor(0, 0);  //line=1, x=0
+  lcd.print(top);
+
+  lcd.setCursor(0, 1);  //line=2, x=0
+  lcd.print(bot);
+}
+
+/**********************************************************
+ * screenFindUiItemIndex - finds the index of the given
+ *   item in the item table.
+ */
+static int screenFindUiItemIndex(UiItem_t item)
+{
+  int idx = 0;
+
+  while (uiItems[idx].item != UI_NONE)
+  {
+    if (uiItems[idx].item == item)
+    {
+      break;
+    }
+
+    idx ++;
+  }
+
+  return idx;
+}
+
+
+/**********************************************************
+ * screenProcess - process keys input to the screen.
+ *
+ * - A KEY_NONE input will refresh the current screen.
+ * - If a screen transition is needed and handlers are
+ *   involved, the exiting handler will be called with
+ *   HANDLER_STATE_EXIT and the entering handler will be
+ *   called with HANDLER_STATE_ENTER.
+ * - The moveToItem denotes a UI Item to forcibly
+ *   transition to.
+ * - If a UI item has a handler, it is expected that the
+ *   handler will do any screen drawing needed.
+ */
+static void screenProcess(KeyCode_t key, UiItem_t moveToItem)
+{
+  static int currItem = UI_START;
+
+  HandlerState_t state = HANDLER_STATE_NONE;
+  bool update = false;
+
+  int idx = screenFindUiItemIndex(currItem);
+
+  // Process the key input
+  // ---------------------
+  int newItem = UI_NONE;
+  switch (key)
+  {
+  case KEY_LEFT:
+    newItem = uiItems[idx].left;
+    break;
+  case KEY_RIGHT:
+    newItem = uiItems[idx].right;
+    break;
+  case KEY_SELECT:
+    newItem = uiItems[idx].select;
+    break;
+  case KEY_NONE:
+    // Force a display update
+    update = true;
+    break;
+  case KEY_UP:
+  case KEY_DOWN:
+    if (uiItems[idx].handler != NULL)
+    {
+      update = true;
+    }
+    break;
+  }
+
+  // Forcibly move to the moveToItem if provided
+  // -------------------------------------------
+  if (moveToItem != UI_NONE)
+  {
+    newItem = moveToItem;
+  }
+
+  // Process any new menu item selected
+  // ----------------------------------
+  if (newItem != UI_NONE)
+  {
+    // Need to close out the handler
+    if (uiItems[idx].handler != NULL)
+    {
+      int altItem = uiItems[idx].handler(key, idx, HANDLER_STATE_EXIT);
+      // Allow the handler to direct the next item as needed
+      if (altItem != UI_NONE)
+      {
+        newItem = altItem;
+      }
+    }
+    currItem = newItem;
+    key = KEY_NONE;
+    state = HANDLER_STATE_ENTER;
+    update = true;
+  }
+
+  // Update the display as needed
+  // ----------------------------
+  if (update)
+  {
+    idx = screenFindUiItemIndex(currItem);
+    if (idx < UI_MAX)
+    {
+      if (uiItems[idx].handler != NULL)
+      {
+        uiItems[idx].handler(key, idx, state);
+      }
+      else
+      {
+        screenDraw(uiItems[idx].top, uiItems[idx].bot);
+      }
+    }
+  }
+}
+
