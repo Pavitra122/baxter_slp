@@ -62,7 +62,12 @@ typedef enum // Menu and Entry items
 , confirmFlowRate
 , confirmVol
 , infusingPrompt
-, invalidVol
+, inputUpperSoftLimit_thousands
+, inputUpperSoftLimit_hundreds
+, inputUpperSoftLimit_tens
+, inputUpperSoftLimit_ones
+, confirmUpperSoftLimit
+//, invalidVol
 
 //////////////////////////////////////////////////////////////////////////////////////
   
@@ -103,7 +108,7 @@ int16_t rate;
 
 ////////////////////////////// Add additional variables here ///////////////////////////////
 
-int numSelected = 0, currRate = 0, i = 0, currVol = 0;
+int numSelected = 0, currRate = 0, i = 0, currVol = 0, currUpperSoftLimit = 0;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -123,7 +128,8 @@ static int screenHandlerInputFlowRate(KeyCode_t key, int itemIdx, HandlerState_t
 static int screenHandlerInputVol(KeyCode_t key, int itemIdx, HandlerState_t state); 
 static int screenHandlerConfirmFlowRate(KeyCode_t key, int itemIdx, HandlerState_t state); 
 static int screenHandlerConfirmVol(KeyCode_t key, int itemIdx, HandlerState_t state); 
-static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state);
+static int screenHandlerInputUpperSoftLimit(KeyCode_t key, int itemIdx, HandlerState_t state);
+//static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state);
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 static void screenProcess(KeyCode_t key, UiItem_t moveToItem);
@@ -200,7 +206,12 @@ static const UiTableEntry_t uiItems[] =
 , { inputVol_ones, UI_NONE, UI_NONE, confirmVol, "Enter VBTI", "Ones: 0", screenHandlerInputVol }
 , {confirmVol, inputVol_tens, infusingPrompt, UI_NONE, "Is this correct?", "", screenHandlerConfirmVol}
 , {infusingPrompt, UI_NONE, UI_NONE, UI_H_INFUSING, "Press SEL to", "start infusion", NULL}
-, {invalidVol, UI_NONE, UI_NONE, UI_NONE, "Invalid Vol: Must", "be from 1-30 mL", screenHandlerInvalidVol}
+, { inputUpperSoftLimit_thousands, UI_NONE, UI_NONE, inputUpperSoftLimit_hundreds, "Upper soft limit", "rate thousands:0", screenHandlerInputUpperSoftLimit }
+, { inputUpperSoftLimit_hundreds, UI_NONE, UI_NONE, inputUpperSoftLimit_tens, "Upper soft limit", "rate hundreds: 0", screenHandlerInputUpperSoftLimit }
+, { inputUpperSoftLimit_tens, UI_NONE, UI_NONE, inputUpperSoftLimit_ones, "Upper soft limit", "rate tens:     0", screenHandlerInputUpperSoftLimit }
+, { inputUpperSoftLimit_ones, UI_NONE, UI_NONE, confirmUpperSoftLimit, "Upper soft limit", "rate ones:    0", screenHandlerInputUpperSoftLimit }
+, {confirmUpperSoftLimit}
+//, {invalidVol, UI_NONE, UI_NONE, UI_NONE, "Invalid Vol: Must", "be from 1-30 mL", screenHandlerInvalidVol}
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -301,10 +312,42 @@ static int screenHandlerConfirmVol(KeyCode_t key, int itemIdx, HandlerState_t st
   }
 }
 
-static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state){
-  delay(3500);
-  return inputVol_tens;
-}  
+static int screenHandlerInputUpperSoftLimit(KeyCode_t key, int itemIdx, HandlerState_t state){
+    screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
+    lcd.setCursor(15,1);
+  
+    if(key == KEY_UP & numSelected == 9){
+      numSelected = 0;
+      lcd.print(numSelected);
+    }
+    else if(key == KEY_UP & numSelected < 9){
+      ++numSelected;
+      lcd.print(numSelected);
+    }
+    if(key == KEY_DOWN & numSelected == 0){
+      numSelected = 9; 
+      lcd.print(numSelected);   
+    }
+    else if(key == KEY_DOWN & numSelected > 0){
+      --numSelected;
+      lcd.print(numSelected);    
+    }
+    if(key == KEY_SELECT){
+      ++i;
+      if(i == 1){currUpperSoftLimit = numSelected * 1000;}
+      if(i == 2){currUpperSoftLimit += numSelected * 100;}
+      if(i == 3){currUpperSoftLimit += numSelected * 10;}
+      if(i == 4){currUpperSoftLimit += numSelected; i = 0;}
+
+      numSelected = 0;
+      return UI_NONE;
+    }
+}
+
+//static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state){
+//  delay(3500);
+//  return inputVol_tens;
+//}  
 
 ///////////////////////// END OF ANA'S SCREENHANDLER FUNCTION DEFINITIONS ////////////////////
 
@@ -339,7 +382,7 @@ static int screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t stat
   lcd.print("Vol del: "); lcd.print(volumeInfused); lcd.print(" mL");
   delay(1500);
   lcd.setCursor(0, 0);
-  lcd.print("Req Vol: "); lcd.print(currVol); lcd.print(" mL");
+  lcd.print("Total Vol: "); lcd.print(currVol); lcd.print(" mL");
   lcd.setCursor(0,0);
   lcd.print("Rate: "); lcd.print(currRate); lcd.print(" mL/h");
 
