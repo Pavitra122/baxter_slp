@@ -75,7 +75,7 @@ typedef enum // Menu and Entry items
 , showVolDeliv
 , showTotVol
 , showRate
-//, invalidVol
+, invalidVol
 
 //////////////////////////////////////////////////////////////////////////////////////
   
@@ -117,6 +117,7 @@ int16_t rate;
 ////////////////////////////// Add additional variables here ///////////////////////////////
 
 int numSelected = 0, currRate = 0, i = 0, currVol = 0, currUpperSoftLimit = 0, currLowerSoftLimit = 0;
+bool volIsInvalid = false;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -143,7 +144,7 @@ static int screenHandlerConfirmLowerSoftLimit(KeyCode_t key, int itemIdx, Handle
 static int screenHandlerShowDeliv(KeyCode_t key, int itemIdx, HandlerState_t state);
 static int screenHandlerShowTot(KeyCode_t key, int itemIdx, HandlerState_t state);
 static int screenHandlerShowRate(KeyCode_t key, int itemIdx, HandlerState_t state);
-//static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state);
+static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state);
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 static void screenProcess(KeyCode_t key, UiItem_t moveToItem);
@@ -233,7 +234,7 @@ static const UiTableEntry_t uiItems[] =
 , { showVolDeliv,   UI_M_START,   showTotVol,       UI_NONE,         "   Infusing",    "L:Stop",           screenHandlerShowDeliv }
 , { showTotVol,   UI_M_START,     showRate,       UI_NONE,         "   Infusing",    "L:Stop",           screenHandlerShowTot }
 , { showRate,   UI_M_START,       showVolDeliv,       UI_NONE,         "   Infusing",    "L:Stop",           screenHandlerShowRate }
-//, {invalidVol, UI_NONE, UI_NONE, UI_NONE, "Invalid Vol: Must", "be from 1-30 mL", screenHandlerInvalidVol}
+, {invalidVol, UI_NONE, UI_NONE, UI_NONE, "Invalid Vol: Must", "be from 1-30 mL", screenHandlerInvalidVol}
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -268,7 +269,6 @@ static int screenHandlerInputFlowRate(KeyCode_t key, int itemIdx, HandlerState_t
       if(i == 2){currRate += numSelected * 100;}
       if(i == 3){currRate += numSelected * 10;}
       if(i == 4){currRate += numSelected; i = 0;}
-
       numSelected = 0;
       return UI_NONE;
     }
@@ -310,10 +310,10 @@ static int screenHandlerInputVol(KeyCode_t key, int itemIdx, HandlerState_t stat
       ++i;
       if(i == 1){currVol = numSelected * 10;}
       if(i == 2){currVol += numSelected; i = 0;}
-
-      //if(currVol < 1 || currVol > 30){
-       // return invalidVol;
-      //}
+      
+      if(currVol < 0 || currVol > 30){
+        return volIsInvalid;
+      }
 
       numSelected = 0;
       return UI_NONE;
@@ -546,10 +546,10 @@ static int screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t stat
 }
 
 
-//static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state){
-//  delay(3500);
-//  return inputVol_tens;
-//}  
+static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state){
+  delay(3500);
+  return inputVol_tens;
+}  
 
 ///////////////////////// END OF ANA'S SCREENHANDLER FUNCTION DEFINITIONS ////////////////////
 
