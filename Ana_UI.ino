@@ -50,7 +50,9 @@ typedef enum // Menu and Entry items
 // "UI_H" for handlers
 , UI_H_INFUSING
 , UI_H_RETRACTING
-// Add additional items here
+  
+////////////////////////////// Add additional items below /////////////////////////////
+  
 , inputFlowRate_thousands
 , inputFlowRate_hundreds
 , inputFlowRate_tens
@@ -60,6 +62,9 @@ typedef enum // Menu and Entry items
 , confirmFlowRate
 , confirmVol
 , infusingPrompt
+
+//////////////////////////////////////////////////////////////////////////////////////
+  
 // Must be last
 , UI_MAX
 } UiItem_t;
@@ -94,9 +99,12 @@ static bool infusing = false;
 uint32_t tenthVolumeInfused;
 uint16_t volumeInfused;
 int16_t rate;
-int numSelected = 0, currRate = 0, i = 0, currVol = 0;
-// Add additional variables here
 
+////////////////////////////// Add additional variables here ///////////////////////////////
+
+int numSelected = 0, currRate = 0, i = 0, currVol = 0;
+
+///////////////////////////////////////////////////////////////////////////////////////////
 
 /* -- Local function prototypes -- */
 static void concatInt(char *buf, int value);
@@ -107,11 +115,16 @@ static void screenDraw(const char *top, const char *bot);
 static int  screenFindUiItemIndex(UiItem_t item);
 static int  screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t state);
 static int  screenHandlerRetracting(KeyCode_t key, int itemIdx, HandlerState_t state);
+
+////////////////////////////// Ana's Local Function Prototypes ///////////////////////////
+
 static int screenHandlerInputFlowRate(KeyCode_t key, int itemIdx, HandlerState_t state); 
 static int screenHandlerInputVol(KeyCode_t key, int itemIdx, HandlerState_t state); 
 static int screenHandlerConfirmFlowRate(KeyCode_t key, int itemIdx, HandlerState_t state); 
 static int screenHandlerConfirmVol(KeyCode_t key, int itemIdx, HandlerState_t state); 
 static void screenProcess(KeyCode_t key, UiItem_t moveToItem);
+
+///////////////////////////////////////////////////////////////////////////////////////////
 
 /* -- Global Functions -- */
 
@@ -174,10 +187,7 @@ static const UiTableEntry_t uiItems[] =
 ,  { UI_M_RETRACT,    UI_M_START,    UI_M_START,    UI_H_RETRACTING, "Menu: Retract",  "L:<  SEL:Ok  R:>", NULL }
 , { UI_H_RETRACTING, UI_M_RETRACT,  UI_NONE,       UI_NONE,         "  Retracting",   "L:Stop",           screenHandlerRetracting }
 
-// Add additional UiTableEntrys here
-
-// CHANGED BELOW
-// Must be last
+///////////////////////////////////// ANA'S ADDED TABLE ENTRIES ////////////////////////////////
 
 , { inputFlowRate_thousands, UI_NONE, UI_NONE, inputFlowRate_hundreds, "Enter Flow Rate", "Thousands: 0", screenHandlerInputFlowRate }
 , { inputFlowRate_hundreds, UI_NONE, UI_NONE, inputFlowRate_tens, "Enter Flow Rate", "Hundreds:  0", screenHandlerInputFlowRate }
@@ -190,7 +200,11 @@ static const UiTableEntry_t uiItems[] =
 , {infusingPrompt, UI_NONE, UI_NONE, UI_H_INFUSING, "Press SEL to", "start infusion", NULL}
 };
 
-/* -- Local Functions -- */
+///////////////////////////////////////////////////////////////////////////////////////////
+
+/* -- Local Function Definitions -- */
+
+///////////////////////////////////// ANA'S SCREENHANDLER FUNCTION DEFINITIONS ////////////////////////////////
 
 static int screenHandlerInputFlowRate(KeyCode_t key, int itemIdx, HandlerState_t state){
     screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
@@ -275,7 +289,7 @@ static int screenHandlerConfirmVol(KeyCode_t key, int itemIdx, HandlerState_t st
     return UI_NONE;
   }
 }
-// END OF MY CODE
+///////////////////////// END OF ANA'S SCREENHANDLER FUNCTION DEFINITIONS ////////////////////
 
 
 static int screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t state)
