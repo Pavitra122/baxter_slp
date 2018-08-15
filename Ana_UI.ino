@@ -67,6 +67,14 @@ typedef enum // Menu and Entry items
 , inputUpperSoftLimit_tens
 , inputUpperSoftLimit_ones
 , confirmUpperSoftLimit
+, inputLowerSoftLimit_thousands
+, inputLowerSoftLimit_hundreds
+, inputLowerSoftLimit_tens
+, inputLowerSoftLimit_ones
+, confirmLowerSoftLimit
+, showVolDeliv
+, showTotVol
+, showRate
 //, invalidVol
 
 //////////////////////////////////////////////////////////////////////////////////////
@@ -108,7 +116,7 @@ int16_t rate;
 
 ////////////////////////////// Add additional variables here ///////////////////////////////
 
-int numSelected = 0, currRate = 0, i = 0, currVol = 0, currUpperSoftLimit = 0;
+int numSelected = 0, currRate = 0, i = 0, currVol = 0, currUpperSoftLimit = 0, currLowerSoftLimit = 0;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -130,6 +138,11 @@ static int screenHandlerConfirmFlowRate(KeyCode_t key, int itemIdx, HandlerState
 static int screenHandlerConfirmVol(KeyCode_t key, int itemIdx, HandlerState_t state); 
 static int screenHandlerInputUpperSoftLimit(KeyCode_t key, int itemIdx, HandlerState_t state);
 static int screenHandlerConfirmUpperSoftLimit(KeyCode_t key, int itemIdx, HandlerState_t state);
+static int screenHandlerInputLowerSoftLimit(KeyCode_t key, int itemIdx, HandlerState_t state);
+static int screenHandlerConfirmLowerSoftLimit(KeyCode_t key, int itemIdx, HandlerState_t state);
+static int screenHandlerShowDeliv(KeyCode_t key, int itemIdx, HandlerState_t state);
+static int screenHandlerShowTot(KeyCode_t key, int itemIdx, HandlerState_t state);
+static int screenHandlerShowRate(KeyCode_t key, int itemIdx, HandlerState_t state);
 //static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state);
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -191,8 +204,8 @@ void uiDeliveryStatus (bool moving             // If the motor is moving or not
 
 static const UiTableEntry_t uiItems[] =
 //  item,            left,          right,         select,          top,              bot,                handler
-{ { UI_M_START,      UI_M_RETRACT,  UI_M_RETRACT,  inputFlowRate_thousands,   "Menu: Infuse",    "L:<  SEL:Ok  R:>", NULL }
-, { UI_H_INFUSING,   UI_M_START,    UI_NONE,       UI_NONE,         "   Infusing",    "L:Stop",           screenHandlerInfusing }
+{ { UI_M_START,      UI_M_RETRACT,  UI_M_RETRACT,  inputLowerSoftLimit_thousands,   "Menu: Infuse",    "L:<  SEL:Ok  R:>", NULL }
+, { UI_H_INFUSING,   UI_M_START,    showVolDeliv,       UI_NONE,         "   Infusing",    "L:Stop R:chgMode",           screenHandlerInfusing }
 ,  { UI_M_RETRACT,    UI_M_START,    UI_M_START,    UI_H_RETRACTING, "Menu: Retract",  "L:<  SEL:Ok  R:>", NULL }
 , { UI_H_RETRACTING, UI_M_RETRACT,  UI_NONE,       UI_NONE,         "  Retracting",   "L:Stop",           screenHandlerRetracting }
 
@@ -211,7 +224,15 @@ static const UiTableEntry_t uiItems[] =
 , { inputUpperSoftLimit_hundreds, UI_NONE, UI_NONE, inputUpperSoftLimit_tens, "Upper soft limit", "rate hundreds: 0", screenHandlerInputUpperSoftLimit }
 , { inputUpperSoftLimit_tens, UI_NONE, UI_NONE, inputUpperSoftLimit_ones, "Upper soft limit", "rate tens:     0", screenHandlerInputUpperSoftLimit }
 , { inputUpperSoftLimit_ones, UI_NONE, UI_NONE, confirmUpperSoftLimit, "Upper soft limit", "rate ones:    0", screenHandlerInputUpperSoftLimit }
-, {confirmUpperSoftLimit, inputUpperSoftLimit_tens, inputLowerSoftLimit, UI_NONE, "Is this correct?", "", screenHandlerConfirmUpperSoftLimit}
+, {confirmUpperSoftLimit, inputUpperSoftLimit_thousands, inputFlowRate_thousands, UI_NONE, "Is this correct?", "", screenHandlerConfirmUpperSoftLimit}
+, { inputLowerSoftLimit_thousands, UI_NONE, UI_NONE, inputLowerSoftLimit_hundreds, "Lower soft limit", "rate thousands:0", screenHandlerInputLowerSoftLimit }
+, { inputLowerSoftLimit_hundreds, UI_NONE, UI_NONE, inputLowerSoftLimit_tens, "Lower soft limit", "rate hundreds: 0", screenHandlerInputLowerSoftLimit }
+, { inputLowerSoftLimit_tens, UI_NONE, UI_NONE, inputLowerSoftLimit_ones, "Lower soft limit", "rate tens:     0", screenHandlerInputLowerSoftLimit }
+, { inputLowerSoftLimit_ones, UI_NONE, UI_NONE, confirmLowerSoftLimit, "Lower soft limit", "rate ones:     0", screenHandlerInputLowerSoftLimit }
+, {confirmLowerSoftLimit, inputLowerSoftLimit_thousands, inputUpperSoftLimit_thousands, UI_NONE, "Is this correct?", "", screenHandlerConfirmLowerSoftLimit}
+, { showVolDeliv,   UI_M_START,   showTotVol,       UI_NONE,         "   Infusing",    "L:Stop",           screenHandlerShowDeliv }
+, { showTotVol,   UI_M_START,     showRate,       UI_NONE,         "   Infusing",    "L:Stop",           screenHandlerShowTot }
+, { showRate,   UI_M_START,       showVolDeliv,       UI_NONE,         "   Infusing",    "L:Stop",           screenHandlerShowRate }
 //, {invalidVol, UI_NONE, UI_NONE, UI_NONE, "Invalid Vol: Must", "be from 1-30 mL", screenHandlerInvalidVol}
 };
 
@@ -290,15 +311,13 @@ static int screenHandlerInputVol(KeyCode_t key, int itemIdx, HandlerState_t stat
       if(i == 1){currVol = numSelected * 10;}
       if(i == 2){currVol += numSelected; i = 0;}
 
-      if(currVol < 1 || currVol > 30){
-        return invalidVol;
-      }
+      //if(currVol < 1 || currVol > 30){
+       // return invalidVol;
+      //}
 
-      else {
       numSelected = 0;
       return UI_NONE;
-      }
-    }
+     }
 }
 
 static int screenHandlerConfirmVol(KeyCode_t key, int itemIdx, HandlerState_t state){
@@ -357,18 +376,146 @@ static int screenHandlerConfirmUpperSoftLimit(KeyCode_t key, int itemIdx, Handle
   }
 }
 
+static int screenHandlerInputLowerSoftLimit(KeyCode_t key, int itemIdx, HandlerState_t state){
+    screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
+    lcd.setCursor(15,1);
+  
+    if(key == KEY_UP & numSelected == 9){
+      numSelected = 0;
+      lcd.print(numSelected);
+    }
+    else if(key == KEY_UP & numSelected < 9){
+      ++numSelected;
+      lcd.print(numSelected);
+    }
+    if(key == KEY_DOWN & numSelected == 0){
+      numSelected = 9; 
+      lcd.print(numSelected);   
+    }
+    else if(key == KEY_DOWN & numSelected > 0){
+      --numSelected;
+      lcd.print(numSelected);    
+    }
+    if(key == KEY_SELECT){
+      ++i;
+      if(i == 1){currLowerSoftLimit = numSelected * 1000;}
+      if(i == 2){currLowerSoftLimit += numSelected * 100;}
+      if(i == 3){currLowerSoftLimit += numSelected * 10;}
+      if(i == 4){currLowerSoftLimit += numSelected; i = 0;}
 
-//static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state){
-//  delay(3500);
-//  return inputVol_tens;
-//}  
+      numSelected = 0;
+      return UI_NONE;
+    }
+}
 
-///////////////////////// END OF ANA'S SCREENHANDLER FUNCTION DEFINITIONS ////////////////////
 
+static int screenHandlerConfirmLowerSoftLimit(KeyCode_t key, int itemIdx, HandlerState_t state){
+  screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
+  lcd.setCursor(4,1); lcd.print(currLowerSoftLimit);
+  lcd.print("mL/h");
+  lcd.setCursor(0,1); lcd.print("L:N");
+  lcd.setCursor(13,1); lcd.print("R:Y");
+
+  if(key == KEY_RIGHT || key == KEY_LEFT){
+    return UI_NONE;
+  }
+}
+
+static int screenHandlerShowDeliv(KeyCode_t key, int itemIdx, HandlerState_t state)
+{
+  //start jtoye 
+
+  if (state == HANDLER_STATE_ENTER)
+      {//Display volume delivered
+        Serial.print(infusing);
+        
+        lcd.setCursor(0,0);
+        lcd.print("Vol del: ");
+        lcd.print(volumeInfused);
+        lcd.print(".");
+        lcd.print(tenthVolumeInfused);
+        lcd.print(" mL     ");
+        }
+     
+  if (state == HANDLER_STATE_EXIT)
+  {
+    infusing = false;
+  }
+
+  if (key == KEY_LEFT)
+  {
+    motorStop();
+    infusing = false;
+    return UI_NONE;
+  }
+    if(key == KEY_RIGHT){
+    return UI_NONE;
+  }
+
+}
+
+
+static int screenHandlerShowTot(KeyCode_t key, int itemIdx, HandlerState_t state)
+{
+  //start jtoye    
+  if (state == HANDLER_STATE_ENTER)
+      {    //Display volume delivered
+       //Display requested volume
+        lcd.setCursor(0,0);
+        lcd.print("Tot vol: ");
+        lcd.print(currVol);
+        lcd.print(" mL      ");
+      }
+  if (state == HANDLER_STATE_EXIT)
+  {
+    infusing = false;
+  }
+
+  
+  if (key == KEY_LEFT)
+  {
+    motorStop();
+    infusing = false;
+    return UI_NONE;
+  }
+    if(key == KEY_RIGHT){
+    return UI_NONE;
+  }
+}
+
+static int screenHandlerShowRate(KeyCode_t key, int itemIdx, HandlerState_t state)
+{
+  //start jtoye    
+  if (state == HANDLER_STATE_ENTER)
+      {//Display volume delivered
+           //Display requested volume
+            lcd.setCursor(0,0);
+            lcd.print("Rate: ");
+            lcd.print(currRate);
+            lcd.print(" mL/hr      ");
+      }
+  if (state == HANDLER_STATE_EXIT)
+  {
+    infusing = false;
+  }
+
+  if (key == KEY_LEFT)
+  {
+    motorStop();
+    infusing = false;
+    return UI_NONE;
+  }
+    if(key == KEY_RIGHT){
+    return UI_NONE;
+  }
+    
+}
 
 static int screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t state)
 {
-  if (state == HANDLER_STATE_ENTER){
+  screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
+  if (state == HANDLER_STATE_ENTER)
+  {
     infusing = true;
     if (motorStart(200, 1)) // Hardcode rate and VTBI
     {
@@ -376,7 +523,11 @@ static int screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t stat
       Serial.println("Error in starting motor");
     }
 
-  }
+  //start jtoye
+
+    
+    }    
+  
   else if (state == HANDLER_STATE_EXIT)
   {
     infusing = false;
@@ -386,24 +537,21 @@ static int screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t stat
   {
     motorStop();
     infusing = false;
+    return UI_NONE;
+  }
+  if(key == KEY_RIGHT){
+    return UI_NONE;
   }
 
-  screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
-  
-  //////////////////////// CHANGED BELOW ///////////////////////////////////
-
-  lcd.setCursor(0,0);
-  lcd.print("Vol del: "); lcd.print(volumeInfused); lcd.print(" mL");
-  delay(1500);
-  lcd.setCursor(0, 0);
-  lcd.print("Total Vol: "); lcd.print(currVol); lcd.print(" mL");
-  lcd.setCursor(0,0);
-  lcd.print("Rate: "); lcd.print(currRate); lcd.print(" mL/h");
-
-  //////////////////////////////////////////////////////////////////////////s
-
-  return UI_NONE;
 }
+
+
+//static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state){
+//  delay(3500);
+//  return inputVol_tens;
+//}  
+
+///////////////////////// END OF ANA'S SCREENHANDLER FUNCTION DEFINITIONS ////////////////////
 
 static int screenHandlerRetracting(KeyCode_t key, int itemIdx, HandlerState_t state)
 {
