@@ -51,7 +51,7 @@ typedef enum // Menu and Entry items
 , UI_H_INFUSING
 , UI_H_RETRACTING
   
-////////////////////////////// Add additional items below /////////////////////////////
+////////////////////////////// Add additional items ("screen names") below /////////////////////////////
   
 , inputFlowRate_thousands
 , inputFlowRate_hundreds
@@ -62,6 +62,7 @@ typedef enum // Menu and Entry items
 , confirmFlowRate
 , confirmVol
 , infusingPrompt
+, invalidVol
 
 //////////////////////////////////////////////////////////////////////////////////////
   
@@ -122,9 +123,10 @@ static int screenHandlerInputFlowRate(KeyCode_t key, int itemIdx, HandlerState_t
 static int screenHandlerInputVol(KeyCode_t key, int itemIdx, HandlerState_t state); 
 static int screenHandlerConfirmFlowRate(KeyCode_t key, int itemIdx, HandlerState_t state); 
 static int screenHandlerConfirmVol(KeyCode_t key, int itemIdx, HandlerState_t state); 
-static void screenProcess(KeyCode_t key, UiItem_t moveToItem);
+static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state);
 
 ///////////////////////////////////////////////////////////////////////////////////////////
+static void screenProcess(KeyCode_t key, UiItem_t moveToItem);
 
 /* -- Global Functions -- */
 
@@ -198,6 +200,7 @@ static const UiTableEntry_t uiItems[] =
 , { inputVol_ones, UI_NONE, UI_NONE, confirmVol, "Enter VBTI", "Ones: 0", screenHandlerInputVol }
 , {confirmVol, inputVol_tens, infusingPrompt, UI_NONE, "Is this correct?", "", screenHandlerConfirmVol}
 , {infusingPrompt, UI_NONE, UI_NONE, UI_H_INFUSING, "Press SEL to", "start infusion", NULL}
+, {invalidVol, UI_NONE, UI_NONE, UI_NONE, "Invalid Vol: Must", "be from 1-30 mL", screenHandlerInvalidVol}
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -232,6 +235,7 @@ static int screenHandlerInputFlowRate(KeyCode_t key, int itemIdx, HandlerState_t
       if(i == 2){currRate += numSelected * 100;}
       if(i == 3){currRate += numSelected * 10;}
       if(i == 4){currRate += numSelected; i = 0;}
+
       numSelected = 0;
       return UI_NONE;
     }
@@ -273,8 +277,15 @@ static int screenHandlerInputVol(KeyCode_t key, int itemIdx, HandlerState_t stat
       ++i;
       if(i == 1){currVol = numSelected * 10;}
       if(i == 2){currVol += numSelected; i = 0;}
+
+      if(currVol < 1 || currVol > 30){
+        return invalidVol;
+      }
+
+      else {
       numSelected = 0;
       return UI_NONE;
+      }
     }
 }
 
@@ -289,13 +300,18 @@ static int screenHandlerConfirmVol(KeyCode_t key, int itemIdx, HandlerState_t st
     return UI_NONE;
   }
 }
+
+static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state){
+  delay(3500);
+  return inputVol_tens;
+}  
+
 ///////////////////////// END OF ANA'S SCREENHANDLER FUNCTION DEFINITIONS ////////////////////
 
 
 static int screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t state)
 {
-  if (state == HANDLER_STATE_ENTER)
-  {
+  if (state == HANDLER_STATE_ENTER){
     infusing = true;
     if (motorStart(200, 1)) // Hardcode rate and VTBI
     {
@@ -316,6 +332,19 @@ static int screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t stat
   }
 
   screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
+  
+  //////////////////////// CHANGED BELOW ///////////////////////////////////
+
+  lcd.setCursor(0,0);
+  lcd.print("Vol del: "); lcd.print(volumeInfused); lcd.print(" mL");
+  delay(1500);
+  lcd.setCursor(0, 0);
+  lcd.print("Req Vol: "); lcd.print(currVol); lcd.print(" mL");
+  lcd.setCursor(0,0);
+  lcd.print("Rate: "); lcd.print(currRate); lcd.print(" mL/h");
+
+  //////////////////////////////////////////////////////////////////////////s
+
   return UI_NONE;
 }
 
