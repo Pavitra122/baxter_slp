@@ -205,7 +205,7 @@ void uiDeliveryStatus (bool moving             // If the motor is moving or not
 static const UiTableEntry_t uiItems[] =
 //  item,            left,          right,         select,          top,              bot,                handler
 { { UI_M_START,      UI_M_RETRACT,  UI_M_RETRACT,  inputLowerSoftLimit_thousands,   "Menu: Infuse",    "L:<  SEL:Ok  R:>", NULL }
-, { UI_H_INFUSING,   UI_M_START,    showVolDeliv,       UI_NONE,         "   Infusing",    "L:Stop R:chgMode",           screenHandlerInfusing }
+, { UI_H_INFUSING,   UI_M_START,    showVolDeliv,       UI_NONE,         "Status: Infusing",    "L:Stop R:chgMode",           screenHandlerInfusing }
 ,  { UI_M_RETRACT,    UI_M_START,    UI_M_START,    UI_H_RETRACTING, "Menu: Retract",  "L:<  SEL:Ok  R:>", NULL }
 , { UI_H_RETRACTING, UI_M_RETRACT,  UI_NONE,       UI_NONE,         "  Retracting",   "L:Stop",           screenHandlerRetracting }
 
