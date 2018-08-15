@@ -76,6 +76,8 @@ typedef enum // Menu and Entry items
 , showTotVol
 , showRate
 , invalidVol
+, invalidRate
+, invalidLimits
 
 //////////////////////////////////////////////////////////////////////////////////////
   
@@ -117,7 +119,6 @@ int16_t rate;
 ////////////////////////////// Add additional variables here ///////////////////////////////
 
 int numSelected = 0, currRate = 0, i = 0, currVol = 0, currUpperSoftLimit = 0, currLowerSoftLimit = 0;
-bool volIsInvalid = false;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -145,6 +146,8 @@ static int screenHandlerShowDeliv(KeyCode_t key, int itemIdx, HandlerState_t sta
 static int screenHandlerShowTot(KeyCode_t key, int itemIdx, HandlerState_t state);
 static int screenHandlerShowRate(KeyCode_t key, int itemIdx, HandlerState_t state);
 static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state);
+static int screenHandlerInvalidRate(KeyCode_t key, int itemIdx, HandlerState_t state);
+static int screenHandlerInvalidLimits(KeyCode_t key, int itemIdx, HandlerState_t state);
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 static void screenProcess(KeyCode_t key, UiItem_t moveToItem);
@@ -208,7 +211,7 @@ static const UiTableEntry_t uiItems[] =
 { { UI_M_START,      UI_M_RETRACT,  UI_M_RETRACT,  inputLowerSoftLimit_thousands,   "Menu: Infuse",    "L:<  SEL:Ok  R:>", NULL }
 , { UI_H_INFUSING,   UI_M_START,    showVolDeliv,       UI_NONE,         "Status: Infusing",    "L:Stop R:chgMode",           screenHandlerInfusing }
 ,  { UI_M_RETRACT,    UI_M_START,    UI_M_START,    UI_H_RETRACTING, "Menu: Retract",  "L:<  SEL:Ok  R:>", NULL }
-, { UI_H_RETRACTING, UI_M_RETRACT,  UI_NONE,       UI_NONE,         "  Retracting",   "L:Stop",           screenHandlerRetracting }
+, { UI_H_RETRACTING, UI_M_START,  UI_H_RETRACTING,       UI_NONE,         "R: Retract 1 mL",   "L: Menu",           screenHandlerRetracting }
 
 ///////////////////////////////////// ANA'S ADDED TABLE ENTRIES ////////////////////////////////
 
@@ -234,7 +237,9 @@ static const UiTableEntry_t uiItems[] =
 , { showVolDeliv,   UI_M_START,   showTotVol,       UI_NONE,         "   Infusing",    "L:Stop",           screenHandlerShowDeliv }
 , { showTotVol,   UI_M_START,     showRate,       UI_NONE,         "   Infusing",    "L:Stop",           screenHandlerShowTot }
 , { showRate,   UI_M_START,       showVolDeliv,       UI_NONE,         "   Infusing",    "L:Stop",           screenHandlerShowRate }
-, {invalidVol, UI_NONE, UI_NONE, UI_NONE, "Invalid Vol: Must", "be from 1-30 mL", screenHandlerInvalidVol}
+, {invalidVol, inputVol_tens, inputVol_tens, inputVol_tens, "Invalid: must be", "1-30 mL  L:back", screenHandlerInvalidVol}
+, {invalidRate, inputFlowRate_thousands, inputFlowRate_thousands, inputFlowRate_thousands, "Must be 1-1000", "mL/h     L:back", screenHandlerInvalidRate}
+, {invalidLimits, inputLowerSoftLimit_thousands, inputLowerSoftLimit_thousands, inputLowerSoftLimit_thousands, "Invalid limits", "L: go back", screenHandlerInvalidLimits}
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -269,6 +274,12 @@ static int screenHandlerInputFlowRate(KeyCode_t key, int itemIdx, HandlerState_t
       if(i == 2){currRate += numSelected * 100;}
       if(i == 3){currRate += numSelected * 10;}
       if(i == 4){currRate += numSelected; i = 0;}
+
+      if(i == 0 && (currRate < 1 || currRate > 1000 || currRate > currUpperSoftLimit || currRate < currLowerSoftLimit)){
+        numSelected = 0;
+        return invalidRate;
+      }
+      
       numSelected = 0;
       return UI_NONE;
     }
@@ -311,8 +322,9 @@ static int screenHandlerInputVol(KeyCode_t key, int itemIdx, HandlerState_t stat
       if(i == 1){currVol = numSelected * 10;}
       if(i == 2){currVol += numSelected; i = 0;}
       
-      if(currVol < 0 || currVol > 30){
-        return volIsInvalid;
+      if(i == 0 && (currVol < 1 || currVol > 30)){
+        numSelected = 0;
+        return invalidVol;
       }
 
       numSelected = 0;
@@ -358,6 +370,10 @@ static int screenHandlerInputUpperSoftLimit(KeyCode_t key, int itemIdx, HandlerS
       if(i == 2){currUpperSoftLimit += numSelected * 100;}
       if(i == 3){currUpperSoftLimit += numSelected * 10;}
       if(i == 4){currUpperSoftLimit += numSelected; i = 0;}
+
+      if(i == 0 && (currUpperSoftLimit <= currLowerSoftLimit || currLowerSoftLimit < 1 || currUpperSoftLimit > 1000)){
+        return invalidLimits;
+      }
 
       numSelected = 0;
       return UI_NONE;
@@ -545,11 +561,20 @@ static int screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t stat
 
 }
 
-
-static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state){
-  delay(3500);
-  return inputVol_tens;
+static int screenHandlerInvalidVol(KeyCode_t key, int itemIdx, HandlerState_t state){   
+  screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
+  return UI_NONE;
 }  
+
+static int screenHandlerInvalidRate(KeyCode_t key, int itemIdx, HandlerState_t state){   
+  screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
+  return UI_NONE;
+}
+
+static int screenHandlerInvalidLimits(KeyCode_t key, int itemIdx, HandlerState_t state){   
+  screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
+  return UI_NONE;
+}
 
 ///////////////////////// END OF ANA'S SCREENHANDLER FUNCTION DEFINITIONS ////////////////////
 
