@@ -278,9 +278,20 @@ static int screenHandlerConfirmVol(KeyCode_t key, int itemIdx, HandlerState_t st
 // END OF MY CODE
 
 
-//start jtoye
-static int screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t state){
-  screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
+
+
+static int screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t state)
+{
+  if (state == HANDLER_STATE_ENTER)
+  {
+    infusing = true;
+    if (motorStart(200, 1)) // Hardcode rate and VTBI
+    {
+      // Error in starting motor
+      Serial.println("Error in starting motor");
+    }
+
+  //start jtoye
   
   // Always describe how to stop
   lcd.setCursor(0,1);
@@ -312,19 +323,8 @@ static int screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t stat
     delay(1000);
     }
 
-//end jtoye
-
-static int screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t state)
-{
-  if (state == HANDLER_STATE_ENTER)
-  {
-    infusing = true;
-    if (motorStart(200, 1)) // Hardcode rate and VTBI
-    {
-      // Error in starting motor
-      Serial.println("Error in starting motor");
-    }
-
+//end jtoye  
+    
   }
   else if (state == HANDLER_STATE_EXIT)
   {
