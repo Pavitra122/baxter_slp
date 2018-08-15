@@ -65,12 +65,7 @@ void motorStop(void)
 
 #else // else !MOTOR_SIMULATOR
 
-static bool infusing = false;
-static uint32_t targetVolumeTenths = 0;
-static uint32_t infusedVolumeTenths = 0;
-
 /* -- Defines -- */
-
 #define SYRINGE_VOLUME_ML          (30.0f)
 #define SYRINGE_BARREL_LENGTH_MM   (80.0f)
 #define THREADED_ROD_PITCH         (1.25f)
@@ -92,25 +87,40 @@ MotorState  mMotorState;              // Motor state (stopped, running, etc.)
 int16_t     mRate;                    // Infusion rate (in mL/hr)
 uint16_t    mVolumeToBeInfused;       // Volume to be infused (in tenths of mL)
 uint16_t    mVolumeInfused;           // Volume infused so far (in tenths of mL)
-uint32_t    mMotorLoopDelay;          // Delay (in usec) until next motor update is needed
+double    mMotorLoopDelay;          // Delay (in usec) until next motor update is needed
 
 
 /* -- Functions -- */
 //*******************************************************************************************
 // Perform one-time motor setup at power up
 //*******************************************************************************************
-
 void motorSetup(void)
 {
     // Setup motor hardware pins
+    // Add code here
     pinMode(motorDirPin,OUTPUT);
     pinMode(motorStepPin,OUTPUT);
-
-
+    //digitalWrite(motorDirPin,HIGH);
     // Initialize motor variables
-    mMotorState = STOPPED;   // Changed it from stop
+    mMotorState = STOPPED;
     mMotorLoopDelay = DEFAULT_MOTOR_LOOP_DELAY;
+//    while(1)
+//    {
+//
+//      delayMicroseconds(240);
+//      digitalWrite(motorStepPin,HIGH);
+//      delayMicroseconds(240);
+//      digitalWrite(motorStepPin,LOW);}
 
+  
+    /*while(1)
+    {
+        delayMicroseconds(500);
+        digitalWrite(motorStepPin,HIGH);
+        delayMicroseconds(500);
+        digitalWrite(motorStepPin,LOW);
+  
+    }*/
 }
 
 
@@ -119,46 +129,39 @@ void motorSetup(void)
 // Returns: delay (in usec) until next motor update needed
 //*******************************************************************************************
 int highorLow = 1;
-float volPerMicroStep = ( 1/ MICROSTEPS_PER_STEP)  * (1.0/ STEPS_PER_REVOLUTION) * (THREADED_ROD_PITCH) * (SYRINGE_VOLUME_ML / SYRINGE_BARREL_LENGTH_MM);
+float volPerMicroStep = ( 1/ MICROSTEPS_PER_STEP)  * (1.0/ STEPS_PER_REVOLUTION) * (THREADED_ROD_PITCH) * (SYRINGE_VOLUME_ML / SYRINGE_BARREL_LENGTH_MM)/ 2.0;
 float volumeInfused_temp = 0;
-//int microSteps = 0;
 uint32_t motorProcess (void)
 {
     // Check if motor is running
-
-         // If running:
     if (mMotorState == RUNNING)
     {
-         // Pulse the motor (toggle the motor step pin)
-      if (highorLow == 1)
-        digitalWrite(motorStepPin,HIGH);
-      else
-        digitalWrite(motorStepPin,LOW);
-      highorLow = !highorLow;
 
-      // Update number of microsteps infused (motor steps once per high/low transition on motor step pin)
-      //microSteps++;  
-                 
-      // Update volume infused
-      volumeInfused_temp += volPerMicroStep;
-      Serial.println(volumeInfused_temp);
-      Serial.println("\n");
-      //uiDeliveryStatus()
-      // See if it is time to stop
-      if(volumeInfused_temp > mVolumeToBeInfused)
-      {
-          Serial.println("Trying to stop");
-          motorStop();
-      }
-      Serial.print("mMotorLoopDelay:  ");
-      Serial.println(mMotorLoopDelay);
-      return mMotorLoopDelay;
-      // Update the UI with the volume infused
+            if (highorLow)
+              digitalWrite(motorStepPin,HIGH);
+            else
+              digitalWrite(motorStepPin,LOW);
+            highorLow = !highorLow;
+
+            volumeInfused_temp += volPerMicroStep;
+
+            if(volumeInfused_temp > mVolumeToBeInfused)
+            {
+
+                motorStop();
+            }
+
+      // Add code here
+        // If running:
+            // Pulse the motor (toggle the motor step pin)
+            // Update number of microsteps infused (motor steps once per high/low transition on motor step pin)
+            // Update volume infused
+            // See if it is time to stop
+            // Update the UI with the volume infused
     }
-    return mMotorLoopDelay;
+
     // Return the delay until next motor update is needed
-    
-    //return 50;
+    return mMotorLoopDelay;
 }
 
 
@@ -173,48 +176,43 @@ uint32_t motorProcess (void)
 //*******************************************************************************************
 int motorStart (int16_t rate, uint8_t volume)
 {
-    
-    Serial.println("Rate:");
-    Serial.println(rate);
+   
     int retVal = 0;
 
-    // If motor is stopped: 
+    // Add code here
     if(mMotorState == STOPPED)
-      {
-        // Perform range checking on the rate and volume
-        if(1 <= abs(rate) && abs(rate) <= 1000 && 1 <= volume && volume <= 30){
+    {
+        
+        if(1 <= abs(rate) && abs(rate) <= 1000 && 1 <= volume && volume <= 30)
+        {
 
-        Serial.println("working");
-
-          
-            // Calculate loop delay that will give the correct infusion rate
-            mMotorLoopDelay = (1.0/(float)rate) * (SYRINGE_VOLUME_ML / SYRINGE_BARREL_LENGTH_MM) * (THREADED_ROD_PITCH) * (1.0/ STEPS_PER_REVOLUTION) * ( 1/ MICROSTEPS_PER_STEP) * (3600000000.0/2.0);
-            Serial.println("delay: ");
-            Serial.println(mMotorLoopDelay);
-            Serial.println("\n");
-            
-            Serial.println("volPerMicroStep: ");
-            Serial.println(volPerMicroStep);
-            Serial.println("\n");
-            // Reset the volume infused
-            mVolumeInfused = 0;
-            volumeInfused_temp =0;
-            // Set motor direction
+            //mMotorLoopDelay = (1.0/abs((float)rate)) * (SYRINGE_VOLUME_ML / SYRINGE_BARREL_LENGTH_MM) * (THREADED_ROD_PITCH) * (1.0/ STEPS_PER_REVOLUTION) * ( 1/ MICROSTEPS_PER_STEP) * (3600000/2.0);
+            mMotorLoopDelay = (1.0/abs((float)rate)) * 263.671 * 1000;
             if(rate > 0)
               digitalWrite(motorDirPin,HIGH);
             else
               digitalWrite(motorDirPin,LOW);
-  
-           //Start motor
-           mMotorState = RUNNING;
-           infusedVolumeTenths++;
-           infusing = (infusedVolumeTenths >= targetVolumeTenths) ? false : true;
-           mRate = rate;
-           mVolumeToBeInfused = volume;
+            mMotorState = RUNNING;
+
+            mVolumeInfused = 0;
+            volumeInfused_temp =0;
+            mRate = rate;
+            mVolumeToBeInfused = volume;
+            return 0;
+
         }
-        else
-          return -1;
-      }
+
+        else return -1;
+
+      
+    }
+    // If motor is stopped:
+        // Perform range checking on the rate
+        // Calculate loop delay that will give the correct infusion rate
+        // Perform range checking on the volume to be infused
+        // Reset the volume infused
+        // Set the motor direction
+        // Start the motor
 
     // Return value indicating if motor was started successfully
     return retVal;
@@ -228,10 +226,7 @@ void motorStop (void)
 {
     // Add code here
     // Stop the motor
-    mMotorState = STOPPED;
+     mMotorState = STOPPED;
 }
 
 #endif // MOTOR_SIMULATOR
-
-
-
