@@ -278,6 +278,42 @@ static int screenHandlerConfirmVol(KeyCode_t key, int itemIdx, HandlerState_t st
 // END OF MY CODE
 
 
+//start jtoye
+static int screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t state){
+  screenDraw(uiItems[itemIdx].top, uiItems[itemIdx].bot);
+  
+  // Always describe how to stop
+  lcd.setCursor(0,1);
+  lcd.print("L: STOP");
+
+  // Alternately display
+    //Display volume delivered
+    lcd.setCursor(0,0);
+    lcd.print("Volume delivered: ");
+    lcd.print(volumeInfused);
+    lcd.print(".");
+    lcd.print(tenthVolumeInfused);
+    lcd.print(" mL");
+    
+    delay(1000);
+    
+    //Display requested volume
+    lcd.setCursor(0,0);
+    lcd.print("Target volume: ");
+    lcd.print(currVol);
+    lcd.print(" mL");
+    delay(1000);
+
+    //Display requested rate
+    lcd.setCursor(0,0);
+    lcd.print("Infusion rate: ");
+    lcd.print(rate);
+    lcd.print(" mL/hr");
+    delay(1000);
+    }
+
+//end jtoye
+
 static int screenHandlerInfusing(KeyCode_t key, int itemIdx, HandlerState_t state)
 {
   if (state == HANDLER_STATE_ENTER)
