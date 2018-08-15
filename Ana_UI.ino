@@ -223,7 +223,7 @@ static const UiTableEntry_t uiItems[] =
 , { inputUpperSoftLimit_thousands, UI_NONE, UI_NONE, inputUpperSoftLimit_hundreds, "Upper soft limit", "rate thousands:0", screenHandlerInputUpperSoftLimit }
 , { inputUpperSoftLimit_hundreds, UI_NONE, UI_NONE, inputUpperSoftLimit_tens, "Upper soft limit", "rate hundreds: 0", screenHandlerInputUpperSoftLimit }
 , { inputUpperSoftLimit_tens, UI_NONE, UI_NONE, inputUpperSoftLimit_ones, "Upper soft limit", "rate tens:     0", screenHandlerInputUpperSoftLimit }
-, { inputUpperSoftLimit_ones, UI_NONE, UI_NONE, confirmUpperSoftLimit, "Upper soft limit", "rate ones:    0", screenHandlerInputUpperSoftLimit }
+, { inputUpperSoftLimit_ones, UI_NONE, UI_NONE, confirmUpperSoftLimit, "Upper soft limit", "rate ones:     0", screenHandlerInputUpperSoftLimit }
 , {confirmUpperSoftLimit, inputUpperSoftLimit_thousands, inputFlowRate_thousands, UI_NONE, "Is this correct?", "", screenHandlerConfirmUpperSoftLimit}
 , { inputLowerSoftLimit_thousands, UI_NONE, UI_NONE, inputLowerSoftLimit_hundreds, "Lower soft limit", "rate thousands:0", screenHandlerInputLowerSoftLimit }
 , { inputLowerSoftLimit_hundreds, UI_NONE, UI_NONE, inputLowerSoftLimit_tens, "Lower soft limit", "rate hundreds: 0", screenHandlerInputLowerSoftLimit }
